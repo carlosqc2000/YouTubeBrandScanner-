@@ -163,7 +163,8 @@ def save_to_json(channel_name, videos):
     print(f"📁 Data saved to {filename}")
 
 if __name__ == "__main__":
-    youtube_handle = "@ItzNandez"
+    # youtube_handle = "@ItzNandez"  
+    youtube_handle = "@LolaLoliitaaa"
     CHANNEL_ID, CHANNEL_NAME = get_channel_id_and_name(API_KEY, youtube_handle)
 
     if CHANNEL_ID:
