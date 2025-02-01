@@ -107,18 +107,18 @@ def detect_sponsors_openai(description):
 
     prompt = f"""
     Extract brand names, company mentions, or sponsorships from the following YouTube description.  
-    Only return relevant **brand names** in a JSON **list format** (like `["Brand 1", "Brand 2"]`).  
-    If no brands are detected, return an empty list `[]`.
+    Only return relevant **brand names** in a JSON **list format** (like ["Brand 1", "Brand 2"]).  
+    If no brands are detected, return an empty list [].
 
     ---
     **Example 1:**  
     Description: "Sponsored by NordVPN! Get 10% off with code TECH10: https://nordvpn.com/mychannel"  
-    ✅ Output: `["NordVPN"]`
+    The output will be: ["NordVPN"]
 
     ---
     **Example 2:**  
     Description: "Discount for travel insurance: https://www.chapkadirect.es/index.php?action=produit&id=877&app=nandez"  
-    ✅ Output: `["Chapka Insurance"]`
+    The output will be: ["Chapka Insurance"]
 
     ---
     Now analyze this description and extract sponsors:
@@ -137,16 +137,17 @@ def detect_sponsors_openai(description):
         raw_output = response.choices[0].message.content
         print("\n🔵 OpenAI Response (Raw):\n", raw_output)
 
-        # ✅ Fix JSON parsing issue (remove backticks and extra spaces)
-        raw_output = raw_output.strip("`").strip()
+        # ✅ Eliminar "✅ Output:" si está presente en la respuesta
+        cleaned_output = raw_output.replace("✅ Output:", "").strip()
 
-        detected_brands = json.loads(raw_output)
+        # ✅ Parsear el JSON correctamente
+        detected_brands = json.loads(cleaned_output)
 
         print("\n🟡 Parsed Sponsorships:\n", detected_brands)
 
         return detected_brands if isinstance(detected_brands, list) else []
     except json.JSONDecodeError:
-        print("❌ OpenAI returned an invalid format.")
+        print("❌ OpenAI returned an invalid format:", cleaned_output)
         return []
     except Exception as e:
         print(f"❌ OpenAI API Error: {e}")
