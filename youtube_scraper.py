@@ -28,9 +28,9 @@ def get_channel_id_and_name(api_key, handle):
     print("❌ Error: Could not find channel ID for handle:", handle)
     return None, None
 
-def get_latest_normal_videos(api_key, channel_id, max_results=5):
+def get_latest_normal_videos(api_key, channel_id, max_results=10):
     """Fetch the latest publicly visible videos, filtering out Shorts and videos under 120s."""
-    url = f"https://www.googleapis.com/youtube/v3/search?key={api_key}&channelId={channel_id}&part=snippet,id&order=date&type=video&maxResults={max_results * 3}"
+    url = f"https://www.googleapis.com/youtube/v3/search?key={api_key}&channelId={channel_id}&part=snippet,id&order=date&type=video&maxResults={max_results * 5}"
     response = requests.get(url)
 
     normal_videos = []
@@ -45,7 +45,7 @@ def get_latest_normal_videos(api_key, channel_id, max_results=5):
                     if video_data["duration_seconds"] >= 120 and not is_probable_short(video_data):
                         normal_videos.append(video_data)
 
-                if len(normal_videos) == max_results:
+                if len(normal_videos) >= max_results:
                     break
     except Exception as e:
         print(f"❌ Error parsing video ID response: {e}")
@@ -164,7 +164,7 @@ def save_to_json(channel_name, videos):
 
 if __name__ == "__main__":
     # youtube_handle = "@ItzNandez"  
-    youtube_handle = "@LolaLoliitaaa"
+    youtube_handle = "@culturavj"
     CHANNEL_ID, CHANNEL_NAME = get_channel_id_and_name(API_KEY, youtube_handle)
 
     if CHANNEL_ID:
