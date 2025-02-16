@@ -1,4 +1,7 @@
+flask
+openai
 requests
 python-dotenv
-gradio
+pymongo
 isodate
+gradio
