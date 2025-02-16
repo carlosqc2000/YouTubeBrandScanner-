@@ -54,49 +54,5 @@ async def process_youtube_channel(youtube_handle: str):
     
     return {"message": "✅ Procesamiento completado", "channel": channel_name, "videos": processed_videos}
 
-# # 📌 Endpoint para recibir y procesar mensajes de WhatsApp
-# @app.post("/webhook")
-# async def webhook(request: Request):
-#     try:
-#         incoming_data = await request.json()
-        
-#         # 📌 Extraer mensaje de WhatsApp
-#         for msg in incoming_data.get("messages", []):
-#             user_message = msg.get("text", {}).get("body", "")
-#             sender_id = msg.get("from", "")
-
-#             # 📌 Consultar MongoDB si la marca existe en la base de datos
-#             videos = await retrieve_sponsored_videos(user_message)
-
-#             # 📌 Si no hay datos en MongoDB, preguntar a OpenAI
-#             if not videos:
-#                 response_message = f"Lo siento, no encontré datos en la base de datos. Intentando con OpenAI..."
-#                 ai_response = await generate_response(user_message, context="No hay datos en la base de datos.")
-#             else:
-#                 response_message = f"📌 Encontré {len(videos)} videos con esa marca."
-#                 ai_response = await generate_response(user_message, context=str(videos))
-
-#             # 📌 Responder con OpenAI o MongoDB
-#             final_response = ai_response if ai_response else response_message
-#             return {"message": final_response}
-
-#     except Exception as e:
-#         print(f"❌ Error en webhook: {e}")
-#         return {"error": "Error procesando el mensaje"}
-
-# # 📌 Endpoint para consultar marcas patrocinadas por un creador
-# @app.get("/creador/{creator_name}")
-# async def get_creator_sponsorships(creator_name: str):
-#     try:
-#         brands = await retrieve_brands_by_creator(creator_name)
-#         if brands:
-#             return {"creator": creator_name, "sponsored_brands": brands}
-#         else:
-#             return {"message": "No se encontraron patrocinadores para este creador."}
-#     except Exception as e:
-#         print(f"❌ Error en la consulta: {e}")
-#         return {"error": "Error procesando la solicitud"}
-
-# 📌 Ejecutar el servidor si el script es ejecutado directamente
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=5000)

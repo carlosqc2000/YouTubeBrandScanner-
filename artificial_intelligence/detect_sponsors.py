@@ -67,26 +67,3 @@ def detect_sponsors_openai(description):
         print(f"❌ OpenAI API Error: {e}")
         return []
 
-async def generate_response(user_query, context):
-    """Genera una respuesta para el chatbot utilizando OpenAI."""
-    
-    prompt = f"""
-    Usuario preguntó: {user_query}
-    Información disponible:
-    {context}
-    
-    Genera una respuesta informativa basada en estos datos.
-    """
-
-    try:
-        response = await openai.chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5
-        )
-
-        return response.choices[0].message.content.strip()
-
-    except Exception as e:
-        print(f"❌ OpenAI API Error: {e}")
-        return "Hubo un error al generar la respuesta. Inténtalo nuevamente más tarde."
