@@ -35,29 +35,16 @@ async def process_youtube_channel(youtube_handle: str):
     for video in latest_videos:
         description = get_video_description(GOOGLE_API_KEY, video["videoId"])
         
-        # ✅ SOLUCIÓN: Usar `await` en detect_sponsors_openai
-        sponsors = await detect_sponsors_openai(description) if description else []
+        sponsors = detect_sponsors_openai(description) if description else []
 
-        # ✅ SOLUCIÓN: Usar `await` solo si save_to_mongodb es async
-        if callable(save_to_mongodb) and hasattr(save_to_mongodb, '__code__') and save_to_mongodb.__code__.co_flags & 0x80:
-            await save_to_mongodb(
-                video_id=video["videoId"],
-                channel_name=channel_name,
-                channel_id=channel_id,
-                published_at=video["publishTime"],
-                sponsors=sponsors,
-                title=video["title"]
+        await save_to_mongodb(
+            video_id=video["videoId"],
+            channel_name=channel_name,
+            channel_id=channel_id,
+            published_at=video["publishTime"],
+            sponsors=sponsors,
+            title=video["title"]
             )
-        else:
-            save_to_mongodb(
-                video_id=video["videoId"],
-                channel_name=channel_name,
-                channel_id=channel_id,
-                published_at=video["publishTime"],
-                sponsors=sponsors,
-                title=video["title"]
-            )
-
         processed_videos.append({
             "video_id": video["videoId"],
             "title": video["title"],
@@ -66,10 +53,6 @@ async def process_youtube_channel(youtube_handle: str):
         })
     
     return {"message": "✅ Procesamiento completado", "channel": channel_name, "videos": processed_videos}
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=5000)
-
 
 # # 📌 Endpoint para recibir y procesar mensajes de WhatsApp
 # @app.post("/webhook")

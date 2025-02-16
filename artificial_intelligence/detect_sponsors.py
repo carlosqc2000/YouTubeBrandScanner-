@@ -2,10 +2,12 @@ import openai
 import json
 import os
 from dotenv import load_dotenv
+import re
 
 # Cargar API Key de OpenAI desde .env
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 # Verificar que la API Key está configurada
 if not OPENAI_API_KEY:
@@ -13,8 +15,7 @@ if not OPENAI_API_KEY:
 else:
     print(f"✅ OPENAI_API_KEY cargada correctamente: {OPENAI_API_KEY[:5]}*****")
 
-
-async def detect_sponsors_openai(description):
+def detect_sponsors_openai(description):
     """Detecta marcas patrocinadoras en una descripción de video."""
     
     if not description:
@@ -42,7 +43,7 @@ async def detect_sponsors_openai(description):
         """
 
     try:
-        response = await openai.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3
@@ -51,8 +52,11 @@ async def detect_sponsors_openai(description):
         raw_output = response.choices[0].message.content.strip()
         print(f"🔍 OpenAI Raw Output BEFORE JSON Parsing: {raw_output}")  # Depuración
 
+        # Limpiar la salida de OpenAI si hay texto extra
+        cleaned_output = re.sub(r'^\*\*Output:\*\*\s*', '', raw_output)
+
         try:
-            detected_brands = json.loads(raw_output)
+            detected_brands = json.loads(cleaned_output)
             return detected_brands if isinstance(detected_brands, list) else []
         
         except json.JSONDecodeError:
