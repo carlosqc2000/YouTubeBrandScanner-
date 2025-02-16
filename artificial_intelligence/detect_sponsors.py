@@ -3,18 +3,18 @@ import json
 import os
 from dotenv import load_dotenv
 
+# Cargar API Key de OpenAI desde .env
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Configurar la API Key correctamente
+# Verificar que la API Key está configurada
 if not OPENAI_API_KEY:
     print("❌ ERROR: La clave OPENAI_API_KEY no está configurada en .env")
 else:
     print(f"✅ OPENAI_API_KEY cargada correctamente: {OPENAI_API_KEY[:5]}*****")
 
-client = openai.Client(api_key=OPENAI_API_KEY)
 
-def detect_sponsors_openai(description):
+async def detect_sponsors_openai(description):
     """Detecta marcas patrocinadoras en una descripción de video."""
     
     if not description:
@@ -33,48 +33,27 @@ def detect_sponsors_openai(description):
         - Include all brands associated with **discount codes, affiliate links, or sponsorship mentions**.  
         - Recognize brands **even if they are indirectly referenced**.  
 
-        ### Example 1:
+        ### Example:
         **Description:** "Consigue un **descuento exclusivo** en tu seguro de viaje con **Chapka Direct** usando este enlace: https://www.chapkadirect.es"
         **Expected Output:** ["Chapka Direct"]
-
-        ### Example 2:
-        **Description:** "Patrocinado por **Flexispot**, la mejor marca de escritorios ergonómicos. Usa mi código 'Nandez' en https://bit.ly/3UQ6cwD"
-        **Expected Output:** ["Flexispot"]
-
-        ### Example 3:
-        **Description:** "Gracias a **Tesla** por prestarme el coche para grabar este vídeo."
-        **Expected Output:** ["Tesla"]
-
-        ### Example 4 (Avoid Locations):
-        **Description:** "Hoy visitamos el **Dubai Atlantis Aquadventure**, un parque acuático en Dubai. La pasamos genial en España."
-        **Expected Output:** []
-
-        ### Example 5 (Ensure Discount Codes are Recognized):
-        **Description:** "Descuento en tu ESIM con **SAILY**: https://saily.com/nandez Código 'Nandez'"
-        **Expected Output:** ["SAILY"]
         
         ---
         **Description:** {description}
         """
-    
+
     try:
-        response = client.chat.completions.create(
+        response = await openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3
         )
-        
+
         raw_output = response.choices[0].message.content.strip()
         print(f"🔍 OpenAI Raw Output BEFORE JSON Parsing: {raw_output}")  # Depuración
-        
+
         try:
             detected_brands = json.loads(raw_output)
-            
-            if not isinstance(detected_brands, list):
-                print("❌ OpenAI did not return a valid list. Forcing reformat...")
-                detected_brands = [raw_output]  # Si la respuesta no es JSON, la tratamos como texto
-            
-            return detected_brands if "No brands detected" not in detected_brands else []
+            return detected_brands if isinstance(detected_brands, list) else []
         
         except json.JSONDecodeError:
             print("❌ JSON Decode Error: OpenAI did not return a valid JSON array.")
@@ -83,3 +62,27 @@ def detect_sponsors_openai(description):
     except Exception as e:
         print(f"❌ OpenAI API Error: {e}")
         return []
+
+async def generate_response(user_query, context):
+    """Genera una respuesta para el chatbot utilizando OpenAI."""
+    
+    prompt = f"""
+    Usuario preguntó: {user_query}
+    Información disponible:
+    {context}
+    
+    Genera una respuesta informativa basada en estos datos.
+    """
+
+    try:
+        response = await openai.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5
+        )
+
+        return response.choices[0].message.content.strip()
+
+    except Exception as e:
+        print(f"❌ OpenAI API Error: {e}")
+        return "Hubo un error al generar la respuesta. Inténtalo nuevamente más tarde."

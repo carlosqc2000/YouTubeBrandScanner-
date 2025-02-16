@@ -1,83 +1,119 @@
-from flask import Flask, request
-import openai
-import pymongo
+from fastapi import FastAPI, Request
+import uvicorn
 import os
 from dotenv import load_dotenv
+from youtube.youtube_api import get_channel_id_and_name, get_latest_non_short_videos, get_video_description
+from artificial_intelligence.detect_sponsors import detect_sponsors_openai, generate_response
+from database.mongodb import save_to_mongodb
 
-# Cargar credenciales desde .env
+# Cargar variables de entorno
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-MONGO_URI = "mongodb://localhost:27017/"
+GOOGLE_API_KEY = os.getenv("GOOGLE_API")
+WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
+WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
 
-# Conectar a MongoDB
-client = pymongo.MongoClient(MONGO_URI)
-db = client["youtube_sponsors"]
-collection = db["sponsored_videos"]
+app = FastAPI()
 
-# Inicializar Flask
-app = Flask(__name__)
+@app.get("/")
+async def root():
+    return {"message": "🚀 FastAPI está funcionando correctamente!"}
 
-@app.route("/")
-def home():
-    """Página de inicio para comprobar que el servidor está funcionando."""
-    return "✅ ¡Servidor Flask funcionando correctamente!"
-
-def retrieve_data_from_mongodb(query):
-    """Busca información en MongoDB según la consulta del usuario."""
-    search_result = collection.find(
-        {"$or": [
-            {"channel_name": {"$regex": query, "$options": "i"}},
-            {"sponsors.brand_name": {"$regex": query, "$options": "i"}}
-        ]},
-        {"_id": 0}
-    )
-    return list(search_result)
-
-def generate_response(user_query):
-    """Genera una respuesta usando OpenAI y datos de MongoDB."""
-    related_data = retrieve_data_from_mongodb(user_query)
-
-    context = "\n".join([
-        f"Canal: {doc['channel_name']}, Video: {doc['video_id']}, Patrocinios: {', '.join([s['brand_name'] for s in doc['sponsors']])}"
-        for doc in related_data
-    ])
-
-    if not context:
-        context = "No encontré información en nuestra base de datos."
-
-    prompt = f"""
-    Usuario preguntó: {user_query}
-    Información disponible:
-    {context}
+@app.get("/procesar/{youtube_handle}")
+async def process_youtube_channel(youtube_handle: str):
+    """Obtiene videos recientes de un canal, detecta patrocinadores y guarda los datos en MongoDB."""
     
-    Genera una respuesta informativa basada en estos datos.
-    """
+    channel_id, channel_name = get_channel_id_and_name(GOOGLE_API_KEY, youtube_handle)
+    if not channel_id:
+        return {"error": "No se encontró el canal. Verifica el nombre."}
+    
+    latest_videos = get_latest_non_short_videos(GOOGLE_API_KEY, channel_id, max_results=20)
+    
+    if not latest_videos:
+        return {"message": f"No se encontraron videos recientes de más de 120s en {channel_name}."}
+    
+    processed_videos = []
+    for video in latest_videos:
+        description = get_video_description(GOOGLE_API_KEY, video["videoId"])
+        
+        # ✅ SOLUCIÓN: Usar `await` en detect_sponsors_openai
+        sponsors = await detect_sponsors_openai(description) if description else []
 
-    client = openai.Client(api_key=OPENAI_API_KEY)  
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.5
-    )
+        # ✅ SOLUCIÓN: Usar `await` solo si save_to_mongodb es async
+        if callable(save_to_mongodb) and hasattr(save_to_mongodb, '__code__') and save_to_mongodb.__code__.co_flags & 0x80:
+            await save_to_mongodb(
+                video_id=video["videoId"],
+                channel_name=channel_name,
+                channel_id=channel_id,
+                published_at=video["publishTime"],
+                sponsors=sponsors,
+                title=video["title"]
+            )
+        else:
+            save_to_mongodb(
+                video_id=video["videoId"],
+                channel_name=channel_name,
+                channel_id=channel_id,
+                published_at=video["publishTime"],
+                sponsors=sponsors,
+                title=video["title"]
+            )
 
-    return response.choices[0].message.content 
-
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    """Simula la recepción de un mensaje y devuelve la respuesta."""
-    incoming_message = request.get_json()
-
-    if "messages" in incoming_message:
-        for msg in incoming_message["messages"]:
-            user_message = msg["text"]["body"]
-            sender_id = msg["from"]
-
-            # Generar respuesta con GPT y MongoDB
-            response_message = generate_response(user_message)
-
-            return {"message": response_message}, 200
-
-    return "OK", 200
+        processed_videos.append({
+            "video_id": video["videoId"],
+            "title": video["title"],
+            "published_at": video["publishTime"],
+            "sponsors": sponsors
+        })
+    
+    return {"message": "✅ Procesamiento completado", "channel": channel_name, "videos": processed_videos}
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    uvicorn.run(app, host="127.0.0.1", port=5000)
+
+
+# # 📌 Endpoint para recibir y procesar mensajes de WhatsApp
+# @app.post("/webhook")
+# async def webhook(request: Request):
+#     try:
+#         incoming_data = await request.json()
+        
+#         # 📌 Extraer mensaje de WhatsApp
+#         for msg in incoming_data.get("messages", []):
+#             user_message = msg.get("text", {}).get("body", "")
+#             sender_id = msg.get("from", "")
+
+#             # 📌 Consultar MongoDB si la marca existe en la base de datos
+#             videos = await retrieve_sponsored_videos(user_message)
+
+#             # 📌 Si no hay datos en MongoDB, preguntar a OpenAI
+#             if not videos:
+#                 response_message = f"Lo siento, no encontré datos en la base de datos. Intentando con OpenAI..."
+#                 ai_response = await generate_response(user_message, context="No hay datos en la base de datos.")
+#             else:
+#                 response_message = f"📌 Encontré {len(videos)} videos con esa marca."
+#                 ai_response = await generate_response(user_message, context=str(videos))
+
+#             # 📌 Responder con OpenAI o MongoDB
+#             final_response = ai_response if ai_response else response_message
+#             return {"message": final_response}
+
+#     except Exception as e:
+#         print(f"❌ Error en webhook: {e}")
+#         return {"error": "Error procesando el mensaje"}
+
+# # 📌 Endpoint para consultar marcas patrocinadas por un creador
+# @app.get("/creador/{creator_name}")
+# async def get_creator_sponsorships(creator_name: str):
+#     try:
+#         brands = await retrieve_brands_by_creator(creator_name)
+#         if brands:
+#             return {"creator": creator_name, "sponsored_brands": brands}
+#         else:
+#             return {"message": "No se encontraron patrocinadores para este creador."}
+#     except Exception as e:
+#         print(f"❌ Error en la consulta: {e}")
+#         return {"error": "Error procesando la solicitud"}
+
+# 📌 Ejecutar el servidor si el script es ejecutado directamente
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=5000)

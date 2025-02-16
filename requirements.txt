@@ -1,7 +1,6 @@
-flask
-openai
-requests
-python-dotenv
-pymongo
-isodate
-gradio
+fastapi==0.110.0  # Framework web moderno y rápido
+uvicorn==0.27.1  # Servidor ASGI para ejecutar FastAPI
+motor==3.3.2  # Cliente asíncrono para MongoDB
+openai==1.10.0  # API de OpenAI para generación de texto
+pydantic==2.6.1  # Validación de datos en FastAPI
+python-dotenv==1.0.1  # Carga variables de entorno desde .env
