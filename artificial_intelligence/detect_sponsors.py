@@ -67,3 +67,37 @@ def detect_sponsors_openai(description):
         print(f"❌ OpenAI API Error: {e}")
         return []
 
+def generate_openai_embedding(text):
+    """Genera un embedding con OpenAI"""
+    response = client.embeddings.create(
+    input=text,
+    model="text-embedding-3-small"
+    )
+    return response.data[0].embedding
+
+
+def generate_openai_response(user_query, similar_videos):
+    """Genera una respuesta basada en los videos más similares encontrados."""
+
+    # Formatear los videos para que OpenAI los entienda correctamente
+    context = "\n".join([
+        f"Título: {video['title']}\nPatrocinadores: {', '.join([s['brand_name'] for s in video['sponsors']]) if video['sponsors'] else 'Ninguno'}"
+        for video in similar_videos
+    ])
+
+    prompt = f"""
+    You are an AI assistant that answers questions about sponsors in YouTube videos.
+
+    User question: "{user_query}"
+
+    Based on the information from the database, provide a clear and helpful response. Here are the relevant videos:
+
+    {context}
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return response.choices[0].message.content

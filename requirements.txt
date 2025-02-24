@@ -4,3 +4,5 @@ motor==3.3.2  # Cliente asíncrono para MongoDB
 openai==1.10.0  # API de OpenAI para generación de texto
 pydantic==2.6.1  # Validación de datos en FastAPI
 python-dotenv==1.0.1  # Carga variables de entorno desde .env
+scipy==1.11.4  # Para calcular similitud de coseno
+numpy==1.26.4  # Librería matemática, usada por SciPy para cálculos rápidos
