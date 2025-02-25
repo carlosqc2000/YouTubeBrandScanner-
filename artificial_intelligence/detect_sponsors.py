@@ -105,7 +105,7 @@ def generate_openai_response(user_query, similar_videos):
 
     # Formatear los videos para que OpenAI los entienda correctamente
     context = "\n".join([
-        f"Título: {video['title']}\nPatrocinadores: {', '.join([s['brand_name'] for s in video['sponsors']]) if video['sponsors'] else 'Ninguno'}"
+        f"Título: {video['title']}\nCanal: {video['channel_name']}\nPatrocinadores: {', '.join([s['brand_name'] for s in video['sponsors']]) if video['sponsors'] else 'Ninguno'}"
         for video in similar_videos
     ])
 
