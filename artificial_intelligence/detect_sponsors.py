@@ -3,11 +3,16 @@ import json
 import os
 from dotenv import load_dotenv
 import re
+import numpy as np
 
 # Cargar API Key de OpenAI desde .env
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
+
+# Lista de palabras clave sobre patrocinadores y publicidad en YouTube
+KEYWORDS = ["sponsor", "patrocinador", "marca", "publicidad", "anuncio", 
+            "empresa", "producto", "afiliado", "descuento", "colaboración", "brand"]
 
 # Verificar que la API Key está configurada
 if not OPENAI_API_KEY:
@@ -75,6 +80,25 @@ def generate_openai_embedding(text):
     )
     return response.data[0].embedding
 
+def is_relevant_question(user_query):
+    """Evalúa si una pregunta es relevante basándose en embeddings y palabras clave."""
+
+    # Obtener embedding de la pregunta del usuario
+    user_embedding = generate_openai_embedding(user_query)
+
+    # Obtener embeddings de las palabras clave
+    keyword_embeddings = [generate_openai_embedding(keyword) for keyword in KEYWORDS]
+
+    # Calcular la similitud de coseno entre la pregunta y cada palabra clave
+    similarities = [
+        np.dot(user_embedding, keyword_emb) / (np.linalg.norm(user_embedding) * np.linalg.norm(keyword_emb))
+        for keyword_emb in keyword_embeddings
+    ]
+
+    print(f"📊 Similitudes con palabras clave: {similarities}")
+
+    # Si alguna similitud es mayor a 0.75, consideramos la pregunta como relevante
+    return max(similarities) > 0.4
 
 def generate_openai_response(user_query, similar_videos):
     """Genera una respuesta basada en los videos más similares encontrados."""
@@ -94,6 +118,20 @@ def generate_openai_response(user_query, similar_videos):
 
     {context}
     """
+
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return response.choices[0].message.content
+
+def ask_chatgpt(user_message):
+    """Genera una respuesta con IA para temas fuera del proyecto."""
+    prompt = f"""You are a helpful AI assistant. Answer the following question:
+
+    User: {user_message}
+    AI:"""
 
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
