@@ -5,7 +5,7 @@ import requests
 from dotenv import load_dotenv
 from youtube.youtube_api import get_channel_id_and_name, get_latest_non_short_videos, get_video_description
 from artificial_intelligence.detect_sponsors import ask_chatgpt, detect_sponsors_openai, generate_openai_embedding, generate_openai_response, is_relevant_question
-from database.mongodb import find_similar_videos, save_to_mongodb
+from database.mongodb import find_similar_videos, save_to_mongodb, collection  
 from pydantic import BaseModel
 
 # Cargar variables de entorno
@@ -29,35 +29,46 @@ async def process_youtube_channel(youtube_handle: str):
     if not channel_id:
         return {"error": "No se encontró el canal. Verifica el nombre."}
     
-    latest_videos = get_latest_non_short_videos(GOOGLE_API_KEY, channel_id, max_results=20)
+    latest_videos = get_latest_non_short_videos(GOOGLE_API_KEY, channel_id, max_results=50)
     
     if not latest_videos:
         return {"message": f"No se encontraron videos recientes de más de 120s en {channel_name}."}
     
     processed_videos = []
     for video in latest_videos:
-        description = get_video_description(GOOGLE_API_KEY, video["videoId"])
+        video_id = video["videoId"]
+
+        # 🔹 Verificar si el video ya existe en MongoDB antes de usar IA
+        existing_video = await collection.find_one({"video_id": video_id})
+        if existing_video:
+            print(f"⚠️ El video {video_id} ya existe en MongoDB. Saltando IA...")
+            continue  # Saltar predicción y pasar al siguiente video
+
+        # 🔥 Ahora hacemos la predicción solo si el video no estaba en MongoDB
+        description = get_video_description(GOOGLE_API_KEY, video_id)
         sponsors = detect_sponsors_openai(description) if description else []
         text_to_embed = f"""
         Canal: {channel_name}
         Título: {video["title"]}
         Patrocinios: {', '.join(sponsors) if sponsors else 'None'}
         """
-
         embedding = generate_openai_embedding(text_to_embed)
 
+        # Guardar en MongoDB ahora que tenemos la predicción
         await save_to_mongodb(
-            video_id=video["videoId"],
+            video_id=video_id,
             channel_name=channel_name,
             channel_id=channel_id,
             published_at=video["publishTime"],
             sponsors=sponsors,
             title=video["title"],
             description=description,
-            embedding=embedding
+            embedding=embedding,
+            collection=collection
         )
+
         processed_videos.append({
-            "video_id": video["videoId"],
+            "video_id": video_id,
             "title": video["title"],
             "published_at": video["publishTime"],
             "sponsors": sponsors

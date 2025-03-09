@@ -6,6 +6,7 @@ import motor.motor_asyncio
 from dateutil import parser
 from datetime import datetime, timedelta
 import re
+from pymongo.errors import DuplicateKeyError
 
 # Conectar a MongoDB de forma asíncrona
 MONGO_URI = "mongodb://localhost:27017/"
@@ -13,23 +14,33 @@ client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
 db = client["youtube_sponsors"]
 collection = db["sponsored_videos"]
 
-async def save_to_mongodb(video_id, channel_name, channel_id, published_at, sponsors, title, description, embedding):
-    """Guarda los datos en MongoDB de forma asíncrona, incluyendo el título del video."""
+async def save_to_mongodb(video_id, channel_name, channel_id, published_at, sponsors, title, description, embedding, collection):
+    """Guarda los datos en MongoDB asegurando que cada video sea único usando video_id, sin actualizar si ya existe."""
+
+    video_id = str(video_id).strip()
+
     data = {
         "video_id": video_id,
-        "title": title,  # ➡️ Guardamos el título del video
+        "title": title,
         "channel_name": channel_name,
         "channel_id": channel_id,
         "published_at": published_at,
-        "sponsors": [
-            {"brand_name": sponsor}
-            for sponsor in sponsors
-        ],
+        "sponsors": [{"brand_name": sponsor} for sponsor in sponsors],
         "description": description,
         "embedding": embedding
     }
-    await collection.insert_one(data)  # ✅ Ahora es asíncrono
-    print(f"✅ Datos guardados en MongoDB para el video {video_id} - {title}")
+
+    # 🔹 Intentamos actualizar solo si no existe
+    result = await collection.update_one(
+        {"video_id": video_id},  # Condición de búsqueda
+        {"$setOnInsert": data},  # Solo inserta si no existe
+        upsert=True  # Permite la inserción solo si no hay coincidencias
+    )
+
+    if result.matched_count == 0:
+        print(f"✅ Video {video_id} guardado en MongoDB.")
+    else:
+        print(f"⚠️ El video {video_id} ya existe en MongoDB. Saltando...")
 
 async def channel_exists(channel_name):
     """Verifica si un canal existe en la base de datos."""
