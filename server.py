@@ -29,7 +29,7 @@ async def process_youtube_channel(youtube_handle: str):
     if not channel_id:
         return {"error": "No se encontró el canal. Verifica el nombre."}
     
-    latest_videos = get_latest_non_short_videos(GOOGLE_API_KEY, channel_id, max_results=50)
+    latest_videos = get_latest_non_short_videos(GOOGLE_API_KEY, channel_id, max_results=10)
     
     if not latest_videos:
         return {"message": f"No se encontraron videos recientes de más de 120s en {channel_name}."}

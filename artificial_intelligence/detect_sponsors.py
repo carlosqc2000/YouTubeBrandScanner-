@@ -37,21 +37,17 @@ def detect_sponsors_openai(description):
 
         **Inclusions:**  
         - Include all brands associated with **discount codes, affiliate links, or sponsorship mentions**.  
-        - Recognize brands **even if they are indirectly referenced**.  
-
-        ### Example:
-        **Description:** "Consigue un **descuento exclusivo** en tu seguro de viaje con **Chapka Direct** usando este enlace: https://www.chapkadirect.es"
-        **Expected Output:** ["Chapka Direct"]
-        
         ---
         **Description:** {description}
         """
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini-realtime-preview",
-            messages=[{"role": "user", "content": prompt}],
-        )
+        # model="ft:gpt-4o-mini-2024-07-18:personal::BA1zm53p",
+        model="ft:gpt-4o-mini-2024-07-18:personal::BAHXG5ow",
+        messages=[{"role": "user", "content": prompt}],
+    )
+
 
         raw_output = response.choices[0].message.content.strip()
         print(f"🔍 OpenAI Raw Output BEFORE JSON Parsing: {raw_output}")  # Depuración
